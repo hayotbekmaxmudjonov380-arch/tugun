@@ -22,6 +22,7 @@ OWN="psql -X -q -v ON_ERROR_STOP=1 -U tugun_owner -d tugun"
 $OWN -f db/001_schema.sql
 $OWN -f db/002_security.sql
 $OWN -f db/003_foundation.sql
+$OWN -f db/004_telegram_login.sql
 echo "schema: ok"
 
 python3 migrate/export_to_sql.py ../legacy/seed.json /tmp/pg/migration.sql --include-demo

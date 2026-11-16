@@ -266,6 +266,56 @@ expect("open month still works", R, f"select public.attendance_set('{S('b2b-pr-2
 expect("rahbar reopens October (logged)", R, [f"select public.reopen_month('{ORG}', '2026-10-01')", f"select count(*) from public.activity where kind = 'month_reopened'"], 1)
 expect("after reopening, correction works again", R, f"select public.attendance_set('{S('b2b-pr-2')}', '2026-10-06', '09:00', '18:00', 'tuzatish')", "")
 
+# ─────────── 13. telegram login (004) ───────────
+deny("xodim cannot create telegram invite", XOD, f"select public.create_telegram_invite('{S('b2b-sales-2')}')")
+deny("guest cannot create telegram invite", GUEST, f"select public.create_telegram_invite('{S('b2b-sales-2')}')")
+INV_TOKEN = val(f"select public.create_telegram_invite('{S('b2b-sales-2')}')", R)
+check("rahbar creates telegram invite token", bool(INV_TOKEN) and len(INV_TOKEN) == 48)
+expect("rahbar sees invite row", R, f"select count(*) from public.telegram_invites where staff_id = '{S('b2b-sales-2')}' and used_at is null", 1)
+expect("xodim does not see invite row", XOD, "select count(*) from public.telegram_invites", 0)
+deny("nobody reads token_hash directly", R, "select token_hash from public.telegram_invites limit 1")
+deny("nobody reads login_codes directly", R, "select count(*) from public.login_codes")
+deny("anon sees no telegram identities", None, "select count(*) from public.telegram_identities", role="anon")
+
+# Claim invite via webhook (service_role)
+CLAIM = val(f"select public.claim_telegram_invite('{INV_TOKEN}', 9988776655, 'alibek')", role="service_role")
+check("claim telegram invite succeeds", '"ok": true' in CLAIM or '"ok":true' in CLAIM)
+expect("invite marked as used", R, f"select count(*) from public.telegram_invites where staff_id = '{S('b2b-sales-2')}' and used_at is not null", 1)
+expect("token cannot be used twice", None, f"select public.claim_telegram_invite('{INV_TOKEN}', 9988776655)->>'error'", "invalid_or_expired", role="service_role")
+
+# Visibility
+expect("rahbar sees telegram identity", R, f"select count(*) from public.telegram_identities where staff_id = '{S('b2b-sales-2')}'", 1)
+expect("other org's rahbar sees none of our telegram identities", R2, f"select count(*) from public.telegram_identities where org_id = '{ORG}'", 0)
+expect("xodim sees own telegram identity", XOD, f"select count(*) from public.telegram_identities where staff_id = '{S('b2b-sales-2')}'", 1)
+expect("other staff member cannot see our telegram identity", OTH, f"select count(*) from public.telegram_identities where staff_id = '{S('b2b-sales-2')}'", 0)
+
+# Create login code
+CODE_DATA = json.loads(val(f"select public.create_login_code('{S('b2b-sales-2')}')", role="service_role"))
+check("create login code succeeds", CODE_DATA.get("ok") is True and len(CODE_DATA.get("code", "")) == 6)
+REAL_CODE = CODE_DATA.get("code")
+
+# Wrong code
+expect("wrong code decreases attempts", None, f"select public.verify_login_code('{S('b2b-sales-2')}', '000000')->>'error'", "wrong_code", role="service_role")
+
+# 5 wrong attempts blocks code
+for _ in range(4):
+    sql(f"select public.verify_login_code('{S('b2b-sales-2')}', '000000')", role="service_role")
+expect("5 wrong attempts blocks code", None, f"select public.verify_login_code('{S('b2b-sales-2')}', '000000')->>'error'", "blocked_too_many_attempts", role="service_role")
+
+# Fresh code works and cannot be used twice
+sql(f"update public.login_codes set created_at = now() - interval '2 minutes' where identity_id in (select id from public.telegram_identities where staff_id = '{S('b2b-sales-2')}')")
+CODE_DATA2 = json.loads(val(f"select public.create_login_code('{S('b2b-sales-2')}')", role="service_role"))
+REAL_CODE2 = CODE_DATA2.get("code")
+expect("correct code verifies", None, f"select public.verify_login_code('{S('b2b-sales-2')}', '{REAL_CODE2}')->>'ok'", "true", role="service_role")
+expect("code cannot be used twice", None, f"select public.verify_login_code('{S('b2b-sales-2')}', '{REAL_CODE2}')->>'error'", "expired_or_used", role="service_role")
+
+# Expired code is rejected
+sql(f"update public.login_codes set created_at = now() - interval '2 minutes' where identity_id in (select id from public.telegram_identities where staff_id = '{S('b2b-sales-2')}')")
+CODE_DATA3 = json.loads(val(f"select public.create_login_code('{S('b2b-sales-2')}')", role="service_role"))
+sql(f"update public.login_codes set expires_at = now() - interval '1 second' where identity_id in (select id from public.telegram_identities where staff_id = '{S('b2b-sales-2')}')")
+expect("expired code is rejected", None, f"select public.verify_login_code('{S('b2b-sales-2')}', '{CODE_DATA3.get('code')}')->>'error'", "expired_or_used", role="service_role")
+
+
 # ─────────── 9. scale: 100 staff, 3 000 tasks, 1 year of attendance ───────────
 sql([f"""insert into public.staff (org_id, dept_id, full_name)
          select '{ORG}', '{D('b2c-sales')}', 'Sinov ' || g from generate_series(1, 73) g""",

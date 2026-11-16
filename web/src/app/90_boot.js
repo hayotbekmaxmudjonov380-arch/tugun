@@ -112,6 +112,44 @@ const actions = {
   },
   "att-issues": () => { S.attF.issues = !S.attF.issues; render(); },
   "att-edit": el => openAttModal(el.dataset.id, el.dataset.date || todayStr(), el.dataset.preset || ""),
+  "tg-invite": async el => {
+    const staffId = el.dataset.id;
+    const p = getPerson(staffId);
+    if (!p) return;
+    toast("Havola yaratilmoqda…");
+    try {
+      if (!sb) {
+        const link = `https://t.me/tugunuzbot?start=demo_${staffId}`;
+        showModal(`<div class="modal-form">
+          <header class="m-head"><div><h2 id="m-title">Telegram taklif havolasi</h2><p class="m-sub">${esc(p.name)} uchun</p></div><button type="button" class="icon-btn" data-action="close-modal">×</button></header>
+          <div class="m-body">
+            <p>Xodimga ushbu taklif havolasini yuboring. U botda <b>Start</b> bosganda hisobi tizimga ulanadi:</p>
+            <div class="field"><input type="text" readonly value="${esc(link)}" id="tg-invite-link" style="font-family:monospace;font-size:13px" onclick="this.select()"></div>
+            <p class="hint">Havola 1 marta ishlaydi va 24 soat amal qiladi.</p>
+          </div>
+          <footer class="m-foot"><span class="spacer"></span><button type="button" class="btn primary" onclick="navigator.clipboard.writeText('${esc(link)}');toast('Havola nusxalandi!')">Nusxa olish</button><button type="button" class="btn" data-action="close-modal">Yopish</button></footer>
+        </div>`);
+        return;
+      }
+      const { data: token, error } = await sb.rpc("create_telegram_invite", { p_staff: staffId });
+      if (error || !token) {
+        toast("Havola yaratib bo'lmadi: faqat rahbar yarata oladi", "crit");
+        return;
+      }
+      const link = `https://t.me/tugunuzbot?start=${token}`;
+      showModal(`<div class="modal-form">
+        <header class="m-head"><div><h2 id="m-title">Telegram taklif havolasi</h2><p class="m-sub">${esc(p.name)} uchun</p></div><button type="button" class="icon-btn" data-action="close-modal">×</button></header>
+        <div class="m-body">
+          <p>Xodimga ushbu taklif havolasini yuboring. U botda <b>Start</b> bosganda hisobi tizimga ulanadi:</p>
+          <div class="field"><input type="text" readonly value="${esc(link)}" id="tg-invite-link" style="font-family:monospace;font-size:13px" onclick="this.select()"></div>
+          <p class="hint">Havola 1 marta ishlaydi va 24 soat amal qiladi.</p>
+        </div>
+        <footer class="m-foot"><span class="spacer"></span><button type="button" class="btn primary" onclick="navigator.clipboard.writeText('${esc(link)}');toast('Havola nusxalandi!')">Nusxa olish</button><button type="button" class="btn" data-action="close-modal">Yopish</button></footer>
+      </div>`);
+    } catch (_e) {
+      toast("Xatolik yuz berdi", "crit");
+    }
+  },
   "new-staff": el => openStaffModal(null, el.dataset.dept),
   "edit-staff": el => openStaffModal(el.dataset.id),
   "new-dept": el => openDeptModal(null, el.dataset.branch),

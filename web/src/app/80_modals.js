@@ -412,7 +412,7 @@ function openPerson(id) {
       <h4 class="sec-title">Ijrochi bo'lgan tasklari</h4>${tl(exec)}
       ${p.phone ? `<p class="muted">Telefon: ${esc(p.phone)}</p>` : ""}
     </div>
-    <footer class="m-foot"><span class="spacer"></span>${can.editAtt(p) ? `<button type="button" class="btn" data-action="att-edit" data-id="${esc(id)}" data-date="${today}" data-preset="">Bugungi davomatni tuzatish</button>` : ""}${can.structure() ? `<button type="button" class="btn primary" data-action="edit-staff" data-id="${esc(id)}">Tahrirlash</button>` : `<button type="button" class="btn" data-action="close-modal">Yopish</button>`}</footer>
+    <footer class="m-foot"><span class="spacer"></span>${can.structure() ? `<button type="button" class="btn" data-action="tg-invite" data-id="${esc(id)}">Telegram havolasi</button>` : ""}${can.editAtt(p) ? `<button type="button" class="btn" data-action="att-edit" data-id="${esc(id)}" data-date="${today}" data-preset="">Bugungi davomatni tuzatish</button>` : ""}${can.structure() ? `<button type="button" class="btn primary" data-action="edit-staff" data-id="${esc(id)}">Tahrirlash</button>` : `<button type="button" class="btn" data-action="close-modal">Yopish</button>`}</footer>
   </div>`, { type: "person", id });
 }
 
