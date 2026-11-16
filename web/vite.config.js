@@ -1,4 +1,5 @@
 import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -42,6 +43,11 @@ function tugunApp() {
 }
 
 export default defineConfig({
-  plugins: [tugunApp()],
+  plugins: [react(), tugunApp()],
+  resolve: {
+    alias: {
+      "@": path.resolve(__dirname, "src"),
+    },
+  },
   build: { target: "es2020", sourcemap: true }
 });
